@@ -1,0 +1,14 @@
+langchain
+langchain-google-genai
+langchain_community
+langchain_openai
+langchain-text-splitters
+langchain-qdrant
+qdrant-client
+pypdf
+python-dotenv
+streamlit
+duckduckgo-search
+python-docx
+python-pptx
+unstructured
