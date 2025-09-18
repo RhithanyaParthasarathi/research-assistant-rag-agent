@@ -12,3 +12,4 @@ duckduckgo-search
 python-docx
 python-pptx
 unstructured
+sentence-transformers
