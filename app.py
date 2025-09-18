@@ -44,8 +44,11 @@ def get_models():
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     return llm, embeddings
 
+# In your app.py, replace the entire function with this one.
+
 def ingest_and_create_retriever(uploaded_files, session_id):
     if not uploaded_files: return None
+
     docs = []
     temp_dir = f"temp_files_{session_id}"
     if not os.path.exists(temp_dir): os.makedirs(temp_dir)
@@ -60,19 +63,44 @@ def ingest_and_create_retriever(uploaded_files, session_id):
             docs.extend(loader.load())
 
     if not docs: return None
+
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     splits = text_splitter.split_documents(docs)
     _, embeddings = get_models()
     texts = [doc.page_content for doc in splits]
     metadatas = [dict(doc.metadata, tenant=session_id) for doc in splits]
 
+    # ---> STEP 1: Create the collection and add documents.
+    # This LangChain method will automatically create the collection if it doesn't exist.
+    # This is the crucial first step.
     QdrantVectorStore.from_texts(
-        texts=texts, embedding=embeddings, metadatas=metadatas, url=QDRANT_URL,
-        api_key=QDRANT_API_KEY, collection_name=COLLECTION_NAME, force_recreate=False
+        texts=texts,
+        embedding=embeddings,
+        metadatas=metadatas,
+        url=QDRANT_URL,
+        api_key=QDRANT_API_KEY,
+        collection_name=COLLECTION_NAME,
+        force_recreate=False
     )
+
+    # ---> STEP 2: Create the payload index.
+    # Now that we are sure the collection exists, we can create the index.
+    client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+    client.create_payload_index(
+        collection_name=COLLECTION_NAME,
+        field_name="metadata.tenant",
+        field_schema=models.PayloadSchemaType.KEYWORD
+    )
+
+    # ---> STEP 3: Get the vector store and create the retriever.
+    # Now we can safely connect to the existing, indexed collection.
     vector_store = QdrantVectorStore.from_existing_collection(
-        embedding=embeddings, url=QDRANT_URL, api_key=QDRANT_API_KEY, collection_name=COLLECTION_NAME
+        embedding=embeddings,
+        url=QDRANT_URL,
+        api_key=QDRANT_API_KEY,
+        collection_name=COLLECTION_NAME
     )
+    
     return vector_store.as_retriever(
         search_kwargs={'filter': models.Filter(must=[
             models.FieldCondition(key="metadata.tenant", match=models.MatchValue(value=session_id))
