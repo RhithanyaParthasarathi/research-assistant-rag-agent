@@ -9,6 +9,7 @@ pypdf
 python-dotenv
 streamlit
 duckduckgo-search
+ddgs
 python-docx
 python-pptx
 unstructured
